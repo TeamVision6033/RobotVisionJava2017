@@ -1,4 +1,5 @@
 import java.io.File;
+import java.util.*;
 import java.io.FilenameFilter;
 
 import org.opencv.core.Core;
@@ -42,6 +43,7 @@ public class ImageSourceFile implements Runnable {
         };
          
         File[] files = folder.listFiles(jpgFileFilter);
+        Arrays.sort(files);
         Mat originalImage = new Mat();
         for (File file : files)
         {

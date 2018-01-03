@@ -1,9 +1,14 @@
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
@@ -14,7 +19,8 @@ public class ImageProcessor {
 	private final int BRIGHT_ADJUST = -20;
 	private final int BLUR_SIZE = 3;
 	private final int THRESH = 100;
-	
+	private final int MIN_CONTOUR_AREA = 10;
+
 	private Imshow originalImageWindow;
 	private Imshow countoursImageWindow;
 	private Imshow markupImageWindow;
@@ -23,9 +29,8 @@ public class ImageProcessor {
 	private boolean showMarkupImage = false;
 	private String lightColor = "blue";
 	private int cycles = 0;
-	
+
 	private List<MatOfPoint> contours;
-	
 
 	public ImageProcessor(String windowsShown) {
 		int xPos = 0;
@@ -57,18 +62,18 @@ public class ImageProcessor {
 	public void ProcessImage(Mat originalImage) {
 		Mat processedImage = originalImage;
 		Mat markupImage = originalImage;
-		Mat hierarchyMat = new Mat();
-		
+		List<ContourData> contourDataList = new ArrayList<ContourData>();
+
 		cycles++;
 		if (originalImageWindow != null)
 			originalImageWindow.showImage(originalImage);
-		
+
 		// Add Image Processing Here
 		processedImage = applyBrightAdjust(processedImage);
 		processedImage = blurImage(processedImage);
 		processedImage = applyColorFilter(processedImage);
-		
-		hierarchyMat = findCoutours(processedImage);
+
+		contourDataList = findCoutours(processedImage);
 
 		if (countoursImageWindow != null)
 			countoursImageWindow.showImage(processedImage);
@@ -83,7 +88,7 @@ public class ImageProcessor {
 		int alpha = 1;
 		int beta = BRIGHT_ADJUST;
 		Mat newImage = new Mat();
-		image.convertTo(newImage, -1 , alpha, beta);
+		image.convertTo(newImage, -1, alpha, beta);
 		return newImage;
 
 	}
@@ -113,24 +118,51 @@ public class ImageProcessor {
 
 		return newImage;
 	}
-	
-	private Mat findCoutours(Mat image) {
-	    /// Detect edges using canny
+
+	private List<ContourData> findCoutours(Mat image) {
+		/// Detect edges using canny
 		Mat cannyOutputImage = new Mat();
 		int apertureSize = 3;
 		boolean L2gradient = false;
-		
+		List<ContourData> contourDataList = new ArrayList<ContourData>();
+
 		Imgproc.Canny(image, cannyOutputImage, THRESH, THRESH * 2, apertureSize, L2gradient);
-	    /// Find contours
+		/// Find contours
 
 		Mat hierarchyMat = new Mat();
-		contours  = new ArrayList<MatOfPoint>();
+		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		Imgproc.findContours(cannyOutputImage, contours, hierarchyMat, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-		
 
-		return hierarchyMat;
+		///
+		double contourArea;
+		MatOfPoint2f thisContour2f = new MatOfPoint2f();
+		MatOfPoint2f approxContour2f = new MatOfPoint2f();
+
+		Rect boundRect;
+		RotatedRect rotatedRect;
+
+		for (int i = 0; i < contours.size(); i++) {
+			contourArea = Imgproc.contourArea(contours.get(i));
+
+			if (contourArea > MIN_CONTOUR_AREA) {
+				contours.get(i).convertTo(thisContour2f, CvType.CV_32FC2);
+
+				// epsilon = max distance from contour to approximate poly (accuracy)
+				double epsilon = Imgproc.arcLength(thisContour2f, true) * 0.02;
+				Imgproc.approxPolyDP(thisContour2f, approxContour2f, epsilon, true);
+
+				// Convert back to MatOfPoint
+				MatOfPoint points = new MatOfPoint(approxContour2f.toArray());
+
+				// Get bounding rect of contour
+				boundRect = Imgproc.boundingRect(points);
+				rotatedRect = Imgproc.minAreaRect(approxContour2f);
+				contourDataList.add(new ContourData(contours.get(i), boundRect, rotatedRect));
+			}
+		}
+
+		return contourDataList;
 	}
-
 
 	public int getCycles() {
 		return cycles;

@@ -1,6 +1,4 @@
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.opencv.core.Core;
@@ -8,6 +6,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
@@ -26,20 +25,20 @@ public class ImageProcessor {
 	private final double ASPECT_RATIO_MAX = 0.7;
 	private final int MIN_RECT_HEIGHT = 25;
 	private final int MAX_RECT_HEIGHT = 999;
+	private final double PI = 3.14159265;
 
 	private Imshow originalImageWindow;
 	private Imshow countoursImageWindow;
-	private Imshow markupImageWindow;
 	private boolean showOriginalImage = false;
 	private boolean showCountoursImage = false;
-	private boolean showMarkupImage = false;
+
 	private String lightColor = "blue";
-	private int cycles = 0;
-	
+
 	private Mat originalImage;
 	private Mat processedImage;
-	private Mat markupImage;
 	private Mat contourImage;
+
+	private VisionData visionData = new VisionData();
 
 	private List<MatOfPoint> contours;
 
@@ -48,15 +47,10 @@ public class ImageProcessor {
 		int yPos = 0;
 		int xIncrement = 100;
 		int yIncrement = 100;
+		
 		if (windowsShown.equals("all")) {
 			showOriginalImage = true;
 			showCountoursImage = true;
-			showMarkupImage = true;
-		}
-		if (showMarkupImage) {
-			markupImageWindow = new Imshow("Markup", xPos, yPos, false);
-			xPos += xIncrement;
-			yPos += yIncrement;
 		}
 		if (showCountoursImage) {
 			countoursImageWindow = new Imshow("Countours", xPos, yPos, false);
@@ -73,15 +67,12 @@ public class ImageProcessor {
 	public void ProcessImage(Mat originalImage) {
 		this.originalImage = originalImage;
 		processedImage = originalImage;
-		markupImage = originalImage;
 		contourImage = originalImage;
 		List<ContourData> contourDataList = new ArrayList<ContourData>();
 		List<ContourData> potentialContourDataList = new ArrayList<ContourData>();
 		List<ContourData> acceptedContourDataList = new ArrayList<ContourData>();
 
-		cycles++;
-		if (originalImageWindow != null)
-			originalImageWindow.showImage(originalImage);
+		visionData.incrementImagesProcessed();
 
 		// Add Image Processing Here
 		processedImage = applyBrightAdjust(processedImage);
@@ -89,18 +80,20 @@ public class ImageProcessor {
 		processedImage = applyColorFilter(processedImage);
 
 		contourDataList = findCoutours(processedImage);
-		
+
 		potentialContourDataList = drawBouningBoxes(contourDataList);
-		
+
 		acceptedContourDataList = findAcceptedContours(potentialContourDataList);
+
+		calculateDistances(acceptedContourDataList);
+
+		applyImageOverlay();
+
+		if (originalImageWindow != null)
+			originalImageWindow.showImage(originalImage);
 
 		if (countoursImageWindow != null)
 			countoursImageWindow.showImage(processedImage);
-
-		// Add Markups to Original Here
-
-		if (markupImageWindow != null)
-			markupImageWindow.showImage(markupImage);
 	}
 
 	private Mat applyBrightAdjust(Mat image) {
@@ -182,90 +175,200 @@ public class ImageProcessor {
 		return contourDataList;
 	}
 
-	private List<ContourData>  drawBouningBoxes(List<ContourData> contourDataList) {
+	private List<ContourData> drawBouningBoxes(List<ContourData> contourDataList) {
 		List<ContourData> potentialContourDataList = new ArrayList<ContourData>();
-	    for (int i = 0; i < contourDataList.size(); i++)
-	    {
-	    	Rect boundRect = contourDataList.get(i).getBoundRect();
-	    	RotatedRect rotatedRect = contourDataList.get(i).getRotatedRect();
-	    	MatOfPoint contour = contourDataList.get(i).getContour();
-	    		    	
-	        if (boundRect.height > MIN_RECT_HEIGHT && boundRect.height < MAX_RECT_HEIGHT && rotatedRect.angle < MAX_ROTATED_REC_ANGLE)
-	        {
-	            double aspect_ratio = (double) boundRect.width / (double) boundRect.height;
+		for (int i = 0; i < contourDataList.size(); i++) {
+			Rect boundRect = contourDataList.get(i).getBoundRect();
+			RotatedRect rotatedRect = contourDataList.get(i).getRotatedRect();
+			MatOfPoint contour = contourDataList.get(i).getContour();
 
-	            if (aspect_ratio >= ASPECT_RATIO_MIN && aspect_ratio <= ASPECT_RATIO_MAX)
-	            {
-	            	potentialContourDataList.add(new ContourData(contour, boundRect, rotatedRect));
+			if (boundRect.height > MIN_RECT_HEIGHT && boundRect.height < MAX_RECT_HEIGHT
+					&& rotatedRect.angle < MAX_ROTATED_REC_ANGLE) {
+				double aspect_ratio = (double) boundRect.width / (double) boundRect.height;
 
-	            	List<MatOfPoint> coutours = new ArrayList<MatOfPoint>();
-	            	coutours.add(contour);
-	            	
-	                if (showCountoursImage)
-	                {
-	                    Scalar color = new Scalar(192, 192, 192);
-	                    Imgproc.drawContours(contourImage, contours, i, color);
-	                    color = new Scalar(255, 0, 0);
-	                    Imgproc.rectangle(contourImage, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
-	                }
-	                if (showOriginalImage)
-	                {
-	                    Scalar color = new Scalar(192, 192, 192);
-	                    Imgproc.drawContours(originalImage, contours, i, color);
-	                    color = new Scalar(255, 0, 0);
-	                    Imgproc.rectangle(originalImage, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
-	                }
-	            }
-	        }
-	    }
-	    return potentialContourDataList;
+				if (aspect_ratio >= ASPECT_RATIO_MIN && aspect_ratio <= ASPECT_RATIO_MAX) {
+					potentialContourDataList.add(new ContourData(contour, boundRect, rotatedRect));
+
+					List<MatOfPoint> coutours = new ArrayList<MatOfPoint>();
+					coutours.add(contour);
+
+					if (showCountoursImage) {
+						Scalar color = new Scalar(192, 192, 192);
+						Imgproc.drawContours(contourImage, contours, i, color);
+						color = new Scalar(255, 0, 0);
+						Imgproc.rectangle(contourImage, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
+					}
+					if (showOriginalImage) {
+						Scalar color = new Scalar(192, 192, 192);
+						Imgproc.drawContours(originalImage, contours, i, color);
+						color = new Scalar(255, 0, 0);
+						Imgproc.rectangle(originalImage, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
+					}
+				}
+			}
+		}
+		return potentialContourDataList;
 
 	}
-	
-	private List<ContourData> findAcceptedContours(List<ContourData> potentialContourDataList)
-	{
+
+	private List<ContourData> findAcceptedContours(List<ContourData> potentialContourDataList) {
 		List<ContourData> acceptedContourDataList = new ArrayList<ContourData>();
-	    int last_x = 0;
-	    int last_y = 0;
-	    for (int i = 0; i < potentialContourDataList.size(); i++)
-	    {
-	    	Rect boundRect = potentialContourDataList.get(i).getBoundRect();
-	    	RotatedRect rotatedRect = potentialContourDataList.get(i).getRotatedRect();
-	    	MatOfPoint contour = potentialContourDataList.get(i).getContour();
-	    	
-	        double MAX_X_OFF = 1.7 * boundRect.height;
-	        double MIN_X_OFF = .8 * boundRect.height;
-	        double MAX_Y_OFF = .15 * boundRect.height;
+		int last_x = 0;
+		int last_y = 0;
+		for (int i = 0; i < potentialContourDataList.size(); i++) {
+			Rect boundRect = potentialContourDataList.get(i).getBoundRect();
+			RotatedRect rotatedRect = potentialContourDataList.get(i).getRotatedRect();
+			MatOfPoint contour = potentialContourDataList.get(i).getContour();
 
-	        for (int x = 0; x < potentialContourDataList.size(); x++)
-	        {
-	        	Rect otherPotentialRect = potentialContourDataList.get(x).getBoundRect();
-	            int delta_x = Math.abs(boundRect.x - otherPotentialRect.x);
-	            int delta_y = Math.abs(boundRect.y - otherPotentialRect.y);
-	            if (x != i && delta_x > 0 & delta_y < MAX_Y_OFF)
-	            {
-	                double height_diff_pct = (double) Math.abs(boundRect.height - otherPotentialRect.height) / (double) boundRect.height;
-	                double width_diff_pct = (double) Math.abs(boundRect.width - otherPotentialRect.width) / (double) boundRect.width;
+			double MAX_X_OFF = 1.7 * boundRect.height;
+			double MIN_X_OFF = .8 * boundRect.height;
+			double MAX_Y_OFF = .15 * boundRect.height;
 
-	                if (last_x != otherPotentialRect.x && last_y != otherPotentialRect.y)
-	                {
-	                    if (delta_x >= MIN_X_OFF && delta_x <= MAX_X_OFF && height_diff_pct < 0.1 && width_diff_pct < 0.1)
-	                    {
-	                        last_x = otherPotentialRect.x;
-	                        last_y = otherPotentialRect.y;
+			for (int x = 0; x < potentialContourDataList.size(); x++) {
+				Rect otherPotentialRect = potentialContourDataList.get(x).getBoundRect();
+				int delta_x = Math.abs(boundRect.x - otherPotentialRect.x);
+				int delta_y = Math.abs(boundRect.y - otherPotentialRect.y);
+				if (x != i && delta_x > 0 & delta_y < MAX_Y_OFF) {
+					double height_diff_pct = (double) Math.abs(boundRect.height - otherPotentialRect.height)
+							/ (double) boundRect.height;
+					double width_diff_pct = (double) Math.abs(boundRect.width - otherPotentialRect.width)
+							/ (double) boundRect.width;
 
-	                        acceptedContourDataList.add(new ContourData(contour, boundRect, rotatedRect));
-	                        break;
-	                    }
-	                }
-	            }
-	        }
-	    }
-	    return acceptedContourDataList;
+					if (last_x != otherPotentialRect.x && last_y != otherPotentialRect.y) {
+						if (delta_x >= MIN_X_OFF && delta_x <= MAX_X_OFF && height_diff_pct < 0.1
+								&& width_diff_pct < 0.1) {
+							last_x = otherPotentialRect.x;
+							last_y = otherPotentialRect.y;
+
+							acceptedContourDataList.add(new ContourData(contour, boundRect, rotatedRect));
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		Scalar color = new Scalar(0, 255, 0);
+		Scalar circleColor = new Scalar(0, 0, 255);
+		for (int i = 0; i < acceptedContourDataList.size(); i++) {
+			Rect acceptedRect = acceptedContourDataList.get(i).getBoundRect();
+			if (showCountoursImage)
+				Imgproc.rectangle(contourImage, acceptedRect.tl(), acceptedRect.br(), color, 2, 8, 0);
+			Imgproc.rectangle(originalImage, acceptedRect.tl(), acceptedRect.br(), color, 2, 8, 0);
+
+			Imgproc.circle(contourImage, new Point(acceptedRect.x, acceptedRect.y), 3, circleColor);
+		}
+
+		return acceptedContourDataList;
 	}
-	
-	public int getCycles() {
-		return cycles;
+
+	private void calculateDistances(List<ContourData> acceptedContourDataList) {
+		double avg_distance = 0;
+		double img_h_center = (double) (originalImage.cols() / 2);
+		double off_center = 0.0;
+		double angle_calc = 0.0;
+
+		if (acceptedContourDataList.size() == 2) {
+			Rect acceptedRect0 = acceptedContourDataList.get(0).getBoundRect();
+			Rect acceptedRect1 = acceptedContourDataList.get(1).getBoundRect();
+
+			int FOCAL_LENGTH = 836 - (2 * acceptedRect0.height);
+			double dist1 = ((double) (5 * FOCAL_LENGTH) / (double) acceptedRect0.height);
+			double dist2 = ((double) (5 * FOCAL_LENGTH) / (double) acceptedRect1.height);
+
+			avg_distance += (double) (dist1 + dist2) / 2.0;
+
+			double pt1 = (double) acceptedRect0.x + (double) acceptedRect0.width;
+			double pt2 = (double) acceptedRect1.x;
+
+			off_center = ((pt1 - img_h_center) / 2) + ((pt2 - img_h_center) / 2);
+
+			double dist_off_center = acceptedRect0.height / 5 * off_center;
+			angle_calc = Math.asin((off_center / acceptedRect0.height * 5) / dist1) * 180.0 / PI;
+
+			visionData.setAngleToTarget(angle_calc);
+			visionData.setDistanceToTarget(avg_distance);
+			visionData.setOffCenterPixels(off_center);
+			visionData.setOffCenterDistance(dist_off_center);
+			visionData.incrementGoodImages();
+		}
+	}
+
+	private void applyImageOverlay() {
+		double img_h_center = (double) (originalImage.cols() / 2);
+		double img_v_center = (double) (originalImage.rows() / 2);
+
+		Scalar grid_color = new Scalar(153, 255, 255);
+
+		// vertical center line
+		Imgproc.line(originalImage, new Point(img_h_center, 0), new Point(img_h_center, originalImage.rows()),
+				grid_color, 1, 8, 0);
+		int pt1 = (int) (img_h_center - 20);
+		int pt2 = (int) (img_h_center + 20);
+		int space = (int) (originalImage.rows() / 8);
+		for (int intersect_point = space; intersect_point < originalImage.rows(); intersect_point += space) {
+			Imgproc.line(originalImage, new Point(pt1, intersect_point), new Point(pt2, intersect_point), grid_color, 1,
+					8, 0);
+		}
+
+		// horizontal center line
+		Imgproc.line(originalImage, new Point(0, img_v_center), new Point(originalImage.cols(), img_v_center),
+				grid_color, 1, 8, 0);
+		pt1 = (int) (img_v_center - 20);
+		pt2 = (int) (img_v_center + 20);
+		space = (int) (originalImage.cols() / 8);
+		for (int intersect_point = space; intersect_point < originalImage.cols(); intersect_point += space) {
+			Imgproc.line(originalImage, new Point(intersect_point, pt1), new Point(intersect_point, pt2), grid_color, 1,
+					8, 0);
+		}
+
+		// ADD GRAY BACKGROUND FOR DATA DISPLAY
+		int box_height = 50;
+		Scalar color = new Scalar(75, 75, 75);
+		Imgproc.rectangle(originalImage, new Point(0, originalImage.rows()),
+				new Point(originalImage.cols(), originalImage.rows() - box_height), color, -1, 8, 0);
+
+		color = new Scalar(190, 255, 255);
+		int x1 = 15;
+		int x2 = 270;
+		int x3 = 430;
+		int bottom_row = originalImage.rows() - 10;
+		int top_row = bottom_row - 22;
+		boolean bottomLeftOrigin = false;
+		String tmpString;
+
+		if (visionData.getDataAge() < 3) {
+			int lock_limit = 4; // how many pixels off center is good
+			Scalar circle_color = (Math.abs(visionData.getOffCenterPixels()) < lock_limit) ? new Scalar(0, 255, 0)
+					: new Scalar(255, 0, 0);
+			int circle_dia = (Math.abs(visionData.getOffCenterPixels()) < lock_limit) ? 15 : 10;
+			int circle_thickness = (Math.abs(visionData.getOffCenterPixels()) < lock_limit) ? -1 : 2;
+
+			Imgproc.circle(originalImage, new Point(img_h_center + visionData.getOffCenterPixels(), img_v_center),
+					circle_dia, circle_color, circle_thickness);
+		}
+
+		if (visionData.getDataAge() > 2 || visionData.getGoodImages() == 0)
+			color = new Scalar(185, 185, 185);
+		tmpString = "Dist Calc: " + Math.round(visionData.getDistanceToTarget() * 10) / 10 + "in";
+		Imgproc.putText(originalImage, tmpString, new Point(x1, top_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+
+		tmpString = "Angle: " + Math.round(visionData.getAngleToTarget() * 10) / 10;
+		Imgproc.putText(originalImage, tmpString, new Point(x2, top_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+
+		tmpString = "Off Center: " + Math.round(visionData.getOffCenterDistance() * 10) / 10 + "in";
+		Imgproc.putText(originalImage, tmpString, new Point(x3, top_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+		
+		//---------------------------------------------------------------------------------------------------------//
+		
+		tmpString = "Frames: " + visionData.getImagesProcessed();
+		Imgproc.putText(originalImage, tmpString, new Point(x1, bottom_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+
+		tmpString = "Found: " + visionData.getGoodImages();
+		Imgproc.putText(originalImage, tmpString, new Point(x2, bottom_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+
+		tmpString = "Data Age: " + visionData.getDataAge();
+		Imgproc.putText(originalImage, tmpString, new Point(x3, bottom_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
 	}
 
 }

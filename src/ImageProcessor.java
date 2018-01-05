@@ -15,6 +15,11 @@ import org.opencv.imgproc.Imgproc;
 
 import com.atul.JavaOpenCV.Imshow;
 
+//import edu.wpi.cscore.CameraServerJNI;
+import edu.wpi.cscore.CvSource;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.networktables.NetworkTable;
+
 public class ImageProcessor {
 	private final int BRIGHT_ADJUST = -20;
 	private final int BLUR_SIZE = 3;
@@ -38,6 +43,9 @@ public class ImageProcessor {
 	private Mat processedImage;
 	private Mat contourImage;
 
+	private NetworkTable networkTable;
+	private CvSource outputStream;
+
 	private VisionData visionData = new VisionData();
 
 	private List<MatOfPoint> contours;
@@ -47,6 +55,11 @@ public class ImageProcessor {
 		int yPos = 0;
 		int xIncrement = 100;
 		int yIncrement = 100;
+
+		NetworkTable.setClientMode();
+		NetworkTable.setTeam(6033);
+		
+		//outputStream = CameraServer.getInstance().putVideo("Jetson", 640, 480);
 		
 		if (windowsShown.equals("all")) {
 			showOriginalImage = true;
@@ -89,11 +102,15 @@ public class ImageProcessor {
 
 		applyImageOverlay();
 
+		writeNetworkTableData();
+
 		if (originalImageWindow != null)
 			originalImageWindow.showImage(originalImage);
 
 		if (countoursImageWindow != null)
 			countoursImageWindow.showImage(processedImage);
+		
+		//outputStream.putFrame(originalImage);
 	}
 
 	private Mat applyBrightAdjust(Mat image) {
@@ -358,9 +375,9 @@ public class ImageProcessor {
 
 		tmpString = "Off Center: " + Math.round(visionData.getOffCenterDistance() * 10) / 10 + "in";
 		Imgproc.putText(originalImage, tmpString, new Point(x3, top_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
-		
-		//---------------------------------------------------------------------------------------------------------//
-		
+
+		// ---------------------------------------------------------------------------------------------------------//
+
 		tmpString = "Frames: " + visionData.getImagesProcessed();
 		Imgproc.putText(originalImage, tmpString, new Point(x1, bottom_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
 
@@ -369,6 +386,20 @@ public class ImageProcessor {
 
 		tmpString = "Data Age: " + visionData.getDataAge();
 		Imgproc.putText(originalImage, tmpString, new Point(x3, bottom_row), 1, 1.0, color, 1, 8, bottomLeftOrigin);
+	}
+
+	private void writeNetworkTableData() {
+		try {
+			if (networkTable.isConnected()) {
+				networkTable.putNumber("VisionSeqNo", visionData.getImagesProcessed());
+				networkTable.putNumber("VisionAge", visionData.getDataAge());
+				networkTable.putNumber("VisionSteer", visionData.getOffCenterDistance());
+				networkTable.putNumber("VisionDistance", visionData.getDistanceToTarget());
+				networkTable.putNumber("VisionAngle", visionData.getAngleToTarget());
+			}
+		} catch (NullPointerException e) {
+			networkTable = NetworkTable.getTable("datatable");
+		}
 	}
 
 }

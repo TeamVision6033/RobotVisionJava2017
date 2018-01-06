@@ -7,6 +7,9 @@
 			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/usr/local/share/OpenCV/java/"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/home/ubuntu/wpi/java/edu/wpi/cscore"/>
+	<classpathentry kind="lib" path="/home/ubuntu/wpi/java/cscore-java-1.1.0.jar"/>
+	<classpathentry kind="lib" path="/home/ubuntu/wpi/java/NetworkTables-3.1.7-desktop.jar"/>
+	<classpathentry kind="lib" path="/home/ubuntu/wpi/java/ntcore-java-4.0.0.jar"/>
+	<classpathentry kind="lib" path="/home/ubuntu/wpi/java/wpilibj-java-2018.1.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

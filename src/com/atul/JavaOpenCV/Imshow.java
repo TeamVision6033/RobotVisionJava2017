@@ -50,7 +50,7 @@ public class Imshow {
 		SizeCustom = false;
 		setCloseOption(0);
 	}
-	
+
 	public Imshow(String title, int xPos, int yPos, boolean reSizable) {
 		Window = new JFrame();
 		image = new ImageIcon();
@@ -86,17 +86,14 @@ public class Imshow {
 		if (SizeCustom) {
 			Imgproc.resize(img, img, new Size(Height, Width));
 		}
-		// Highgui.imencode(".jpg", img, matOfByte);
-		// byte[] byteArray = matOfByte.toArray();
 		BufferedImage bufImage = null;
 		try {
-			// InputStream in = new ByteArrayInputStream(byteArray);
-			// bufImage = ImageIO.read(in);
 			bufImage = toBufferedImage(img);
 			image.setImage(bufImage);
 			Window.pack();
 			label.updateUI();
-			Window.setVisible(true);
+			if (!Window.isVisible())
+				Window.setVisible(true);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -114,8 +111,7 @@ public class Imshow {
 		byte[] b = new byte[bufferSize];
 		m.get(0, 0, b); // get all the pixels
 		BufferedImage image = new BufferedImage(m.cols(), m.rows(), type);
-		final byte[] targetPixels = ((DataBufferByte) image.getRaster()
-				.getDataBuffer()).getData();
+		final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
 		System.arraycopy(b, 0, targetPixels, 0, b.length);
 		return image;
 
@@ -150,9 +146,7 @@ public class Imshow {
 		Window.setResizable(resizable);
 	}
 
-
-	// Thanks to Jan Monterrubio for additional static methods for viewing images. 
-
+	// Thanks to Jan Monterrubio for additional static methods for viewing images.
 
 	/**
 	 * Displays the given {@link Mat} in a new instance of {@link Imshow}
@@ -161,13 +155,12 @@ public class Imshow {
 	 *            the {@link Mat} to display
 	 */
 	public static void show(Mat mat) {
-		show(mat, new Dimension(mat.rows(), mat.cols()), "", false,
-				WindowConstants.EXIT_ON_CLOSE);
+		show(mat, new Dimension(mat.rows(), mat.cols()), "", false, WindowConstants.EXIT_ON_CLOSE);
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with
-	 * the given title as the title for the window
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with the
+	 * given title as the title for the window
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -175,14 +168,13 @@ public class Imshow {
 	 *            the title for the frame
 	 */
 	public static void show(Mat mat, String frameTitle) {
-		show(mat, new Dimension(mat.rows(), mat.cols()), frameTitle, false,
-				WindowConstants.EXIT_ON_CLOSE);
+		show(mat, new Dimension(mat.rows(), mat.cols()), frameTitle, false, WindowConstants.EXIT_ON_CLOSE);
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with
-	 * the given title as the title for the window and determines whether the
-	 * frame is resizable or not
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with the
+	 * given title as the title for the window and determines whether the frame is
+	 * resizable or not
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -192,13 +184,12 @@ public class Imshow {
 	 *            whether the frame should be resizable or not
 	 */
 	public static void show(Mat mat, String frameTitle, boolean resizable) {
-		show(mat, new Dimension(mat.rows(), mat.cols()), frameTitle, resizable,
-				WindowConstants.EXIT_ON_CLOSE);
+		show(mat, new Dimension(mat.rows(), mat.cols()), frameTitle, resizable, WindowConstants.EXIT_ON_CLOSE);
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a
-	 * set size
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a set
+	 * size
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -210,8 +201,8 @@ public class Imshow {
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a
-	 * set size and given title
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a set
+	 * size and given title
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -225,8 +216,8 @@ public class Imshow {
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a
-	 * set size and given title and whether it is resizable or not
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a set
+	 * size and given title and whether it is resizable or not
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -235,16 +226,14 @@ public class Imshow {
 	 * @param frameTitle
 	 *            the title for the frame
 	 */
-	public static void show(Mat mat, Dimension frameSize, String frameTitle,
-			boolean resizable) {
-		show(mat, frameSize, frameTitle, resizable,
-				WindowConstants.EXIT_ON_CLOSE);
+	public static void show(Mat mat, Dimension frameSize, String frameTitle, boolean resizable) {
+		show(mat, frameSize, frameTitle, resizable, WindowConstants.EXIT_ON_CLOSE);
 	}
 
 	/**
-	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a
-	 * set size and given title and whether it is resizable or not, and with the
-	 * close operation set
+	 * Displays the given {@link Mat} in a new instance of {@link Imshow} with a set
+	 * size and given title and whether it is resizable or not, and with the close
+	 * operation set
 	 * 
 	 * @param mat
 	 *            the {@link Mat} to display
@@ -257,14 +246,13 @@ public class Imshow {
 	 * @param closeOperation
 	 *            the constant for the default close operation of the frame
 	 */
-	public static void show(Mat mat, Dimension frameSize, String frameTitle,
-			boolean resizable, int closeOperation) {
+	public static void show(Mat mat, Dimension frameSize, String frameTitle, boolean resizable, int closeOperation) {
 		Imshow frame = new Imshow(frameTitle, frameSize.height, frameSize.width);
 		frame.setResizable(resizable);
 
 		/*
-		 * This is a bad way to access the window, but due to legacy stuff I
-		 * won't change the access patterns
+		 * This is a bad way to access the window, but due to legacy stuff I won't
+		 * change the access patterns
 		 */
 		frame.Window.setDefaultCloseOperation(closeOperation);
 		frame.showImage(mat);
